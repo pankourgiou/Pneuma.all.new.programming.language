@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pneuma · the language that breathes</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#e9f0f4;--panel:#f8fbfc;--ink:#12263a;--mute:#5d7285;--acc:#1f6f8b;--line:#cbd9e1;--err:#b4302a;--ok:#1b6b4a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1721;--panel:#102331;--ink:#e3eef4;--mute:#8aa3b3;--acc:#7cc4dc;--line:#1d3849;--err:#ff8d85;--ok:#7fd8ad}}
+:root[data-theme="dark"]{--bg:#0b1721;--panel:#102331;--ink:#e3eef4;--mute:#8aa3b3;--acc:#7cc4dc;--line:#1d3849;--err:#ff8d85;--ok:#7fd8ad}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Iowan Old Style",Palatino,Georgia,serif;padding:20px max(16px,env(safe-area-inset-left)) 28px}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:clamp(2.2rem,6vw,3.4rem);font-weight:400;letter-spacing:-.02em;margin:0;line-height:1}
+.sub{color:var(--mute);margin:.5rem 0 1.4rem;font-style:italic}
+.bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+select,button{font:inherit;font-size:.95rem;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+button.run{background:var(--acc);border-color:var(--acc);color:var(--bg);font-weight:600;cursor:pointer}
+button:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hint{color:var(--mute);font-size:.85rem;margin-left:auto}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}.hint{display:none}}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;min-width:0}
+.pane h2{font-size:.9rem;font-weight:400;font-style:italic;color:var(--mute);margin:0;padding:8px 14px;border-bottom:1px solid var(--line)}
+textarea,pre{font:14.5px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin:0;padding:14px;width:100%;min-height:340px;border:0;background:transparent;color:var(--ink)}
+textarea{resize:vertical;display:block;tab-size:2}
+pre{white-space:pre-wrap;word-break:break-word;overflow-x:auto}
+.res{color:var(--ok)}.err{color:var(--err)}.dim{color:var(--mute)}
+.pane.breathe{animation:br .9s ease-out}
+@keyframes br{from{box-shadow:0 0 0 0 var(--acc)}to{box-shadow:0 0 0 14px transparent}}
+@media (prefers-reduced-motion:reduce){.pane.breathe{animation:none}}
+.ref{margin-top:18px;color:var(--mute);font-size:.92rem;max-width:70ch}
+.ref code{font-family:ui-monospace,Menlo,monospace;font-size:.85rem;color:var(--ink)}
+input[type=text]{font:inherit;font-size:.95rem;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:9rem}
+input[type=text]:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.note{flex-basis:100%;font-size:.9rem;color:var(--mute)}.note.bad{color:var(--err)}
+.note button{margin-left:6px;padding:4px 10px}
+#guide{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:6px 20px 20px;margin-top:16px}
+#guide h3{font-weight:400;font-size:1.2rem;margin:1.3em 0 .3em}
+#guide p{max-width:70ch;margin:.4em 0}
+#guide pre{min-height:0;padding:10px 12px;background:var(--bg);border:1px solid var(--line);border-radius:8px;margin:.6em 0}
+#guide code{font-family:ui-monospace,Menlo,monospace;font-size:.88rem}
+.tw{overflow-x:auto}#guide table{border-collapse:collapse;width:100%;font-size:.92rem}
+#guide td{padding:5px 10px 5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+#guide td:first-child{white-space:nowrap;font-family:ui-monospace,Menlo,monospace;font-size:.86rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>pneuma</h1>
+  <p class="sub">πνεῦμα, breath. A small functional language where data flows through pipelines.</p>
+  <div class="bar">
+    <button class="run" id="run">Run</button><button id="open">Open</button><input id="fname" type="text" value="program" aria-label="File name" size="12"><button id="save">Save .pneuma</button>
+    <select id="ex" aria-label="Examples"></select>
+    <button id="guideBtn" aria-expanded="false">Guide</button><span class="hint">Ctrl/⌘ + Enter runs · Ctrl/⌘ + S saves</span><div id="note" class="note" hidden></div>
+  </div>
+  <div class="grid">
+    <div class="pane"><h2>program</h2><textarea id="src" spellcheck="false" autocapitalize="off"></textarea></div>
+    <div class="pane" id="outpane"><h2>output</h2><pre id="out"></pre></div>
+  </div>
+  <section id="guide" hidden>
+<h3>How Pneuma works</h3>
+<p>A program is a list of lines. <code>let</code> gives a value a name, and the last expression is the result, shown after <code>⇒</code>. Everything is an expression and nothing changes once it exists: there are no loops and no variables to update. You repeat work with recursion, and you transform lists with <code>map</code>, <code>filter</code> and <code>fold</code>. Comments start with <code>--</code>.</p>
+<pre>let greeting = "hello"
+let n = 3 * 4          -- 12
+greeting + " " + show(n)</pre>
+<h3>Values and operators</h3>
+<p>Numbers (<code>3</code>, <code>2.5</code>), strings (<code>"text"</code>), booleans (<code>true</code>, <code>false</code>) and lists (<code>[1, "two", 3]</code>). From tightest to loosest: <code>* / %</code>, <code>+ -</code> (<code>+</code> also joins strings and lists), <code>&lt; &gt; &lt;= &gt;=</code>, <code>== !=</code>, <code>&amp;&amp;</code>, <code>||</code>, then the pipe <code>|&gt;</code>.</p>
+<h3>Functions</h3>
+<p>Write <code>x -&gt; body</code> for one parameter or <code>(a, b) -&gt; body</code> for several, and call with parentheses. Give a function fewer arguments than it needs and you get back a function waiting for the rest (currying). Functions can return functions and remember the names around them (closures).</p>
+<pre>let add = (a, b) -&gt; a + b
+let inc = add(1)       -- still needs b
+inc(41)                -- 42</pre>
+<h3>Pipelines</h3>
+<p><code>x |&gt; f</code> means <code>f(x)</code>. <code>x |&gt; f(a)</code> means <code>f(a)(x)</code>, so the piped value always becomes the <em>last</em> argument. That is why built-ins take the list last: <code>map(f, xs)</code>, <code>filter(p, xs)</code>. A pipeline can continue on the next line when that line starts with <code>|&gt;</code>.</p>
+<pre>range(1, 6) |&gt; map(x -&gt; x * x) |&gt; sum   -- 55</pre>
+<h3>Choices and local names</h3>
+<p><code>if cond then a else b</code> is an expression, and <code>else</code> is required. <code>let name = value in body</code> creates a name that exists only inside <code>body</code>. Lines may break after <code>then</code>, <code>else</code>, <code>in</code>, <code>-&gt;</code>, <code>=</code> or any operator, and before <code>then</code>, <code>else</code> and <code>in</code>.</p>
+<h3>Built-in functions</h3>
+<div class="tw"><table>
+<tr><td>map(f, xs)</td><td>apply f to every item</td></tr>
+<tr><td>filter(p, xs)</td><td>keep items where p is true</td></tr>
+<tr><td>fold(f, start, xs)</td><td>combine items into one value: f(acc, item)</td></tr>
+<tr><td>range(a, b)</td><td>a, a+1, ... b-1</td></tr>
+<tr><td>sum  product  max  min</td><td>one list in, one number out</td></tr>
+<tr><td>len(x)</td><td>length of a list or string</td></tr>
+<tr><td>head  tail  last</td><td>first item, all but the first, final item</td></tr>
+<tr><td>take(n, xs)  drop(n, xs)</td><td>first n items, or everything after them</td></tr>
+<tr><td>reverse  sort</td><td>reverse a list or string, sort a list</td></tr>
+<tr><td>zip(a, b)</td><td>pair items: [[a1, b1], [a2, b2], ...]</td></tr>
+<tr><td>concat(xss)</td><td>flatten a list of lists by one level</td></tr>
+<tr><td>contains(x, xs)</td><td>is x in the list (or substring of the string)</td></tr>
+<tr><td>any(p, xs)  all(p, xs)</td><td>does p hold for some / every item</td></tr>
+<tr><td>upper  lower</td><td>change case</td></tr>
+<tr><td>split(sep, s)  join(sep, xs)</td><td>string to list, list to string</td></tr>
+<tr><td>chars(s)  show(v)</td><td>string to letters, any value to text</td></tr>
+<tr><td>abs  sqrt  floor</td><td>numbers</td></tr>
+<tr><td>print(v)</td><td>write a line to the output and return v</td></tr>
+</table></div>
+<h3>Files</h3>
+<p>Programs are plain text with the <code>.pneuma</code> extension. <b>Open</b> loads a file into the editor (you can also drop one onto it). <b>Save</b> downloads the editor's text under the name in the box.</p>
+<h3>Common errors</h3>
+<p><code>Undefined name</code>: a typo, or the name is defined further down. <code>Not a function</code>: you called something that is a value. <code>Expected "else"</code>: every <code>if</code> needs both branches. <code>Too much recursion</code>: the function never reaches its base case, or the input is very large.</p>
+</section>
+<p class="ref">Values: numbers, strings, <code>true</code>/<code>false</code>, lists. Functions: <code>x -> x + 1</code>, <code>(a, b) -> a + b</code>, curried automatically. Flow: <code>xs |> map(f) |> sum</code>. Open the Guide for the full reference.</p>
+</div>
+<script>
+const EXAMPLES={
+"Basics: Pipelines":`-- data flows left to right
+let double = x -> x * 2
+let isEven = n -> n % 2 == 0
+
+range(1, 11)
+  |> filter(isEven)
+  |> map(double)
+  |> sum`,
+"Recursion: Factorial and Fibonacci":`let fact = n -> if n <= 1 then 1 else n * fact(n - 1)
+let fib = n -> if n < 2 then n else fib(n - 1) + fib(n - 2)
+
+print(range(0, 15) |> map(fib))
+fact(1)`,
+"Functions: Currying":`let add = (a, b) -> a + b
+let inc = add(1)
+let double = x -> x * 2
+let compose = (f, g) -> x -> g(f(x))
+
+let step = compose(inc, double)
+[1, 2, 3] |> map(step)`,
+"Strings: Reverse the words":`let words = ["breath", "of", "fire", "and", "light"]
+
+words
+  |> map(w -> upper(w))
+  |> reverse
+  |> join(" ")`,
+"Basics: Values and arithmetic":`-- numbers, strings, booleans, lists
+let price = 12.5
+let qty = 4
+print("total: " + show(price * qty))
+print(10 / 4)
+print(17 % 5)
+print("pneuma" + " " + "breathes")
+print(3 < 5 && "a" == "a")
+[1, 2, 3] + [4, 5]`,
+"Basics: Conditionals":`let sign = n ->
+  if n < 0 then "negative"
+  else if n == 0 then "zero"
+  else "positive"
+
+[-5, 0, 7] |> map(sign)`,
+"Basics: Local names with let-in":`let area = r -> let pi = 3.14159 in pi * r * r
+let hyp = (a, b) -> let sa = a * a in let sb = b * b in sqrt(sa + sb)
+
+print(area(2))
+hyp(3, 4)`,
+"Functions: Closures":`-- makeAdder returns a function that remembers n
+let makeAdder = n -> x -> x + n
+let add10 = makeAdder(10)
+let add100 = makeAdder(100)
+
+[add10(1), add100(1), makeAdder(5)(5)]`,
+"Functions: Composition":`let compose = (f, g) -> x -> g(f(x))
+let inc = x -> x + 1
+let double = x -> x * 2
+let square = x -> x * x
+let pipeline = compose(compose(inc, double), square)
+
+print(pipeline(3))
+range(1, 6) |> map(pipeline)`,
+"Functions: Higher-order":`let twice = (f, x) -> f(f(x))
+let applyN = (n, f, x) -> if n == 0 then x else applyN(n - 1, f, f(x))
+
+print(twice(x -> x * 3, 5))
+applyN(10, x -> x * 2, 1)`,
+"Lists: Odd squares":`let square = x -> x * x
+
+range(1, 11)
+  |> map(square)
+  |> filter(n -> n % 2 == 1)
+  |> sum`,
+"Lists: Folding":`let maxOf = xs -> fold((a, b) -> if a > b then a else b, head(xs), xs)
+let count = (p, xs) -> xs |> filter(p) |> len
+let xs = [4, 8, 15, 16, 23, 42]
+
+print(maxOf(xs))
+print(count(x -> x > 10, xs))
+fold((acc, x) -> acc + [x * x], [], xs)`,
+"Lists: Zip":`let names = ["ada", "alan", "grace"]
+let years = [1815, 1912, 1906]
+
+zip(names, years)
+  |> map(p -> head(p) + " was born in " + show(last(p)))`,
+"Lists: Sorting and slicing":`let nums = [5, 3, 9, 1, 7]
+
+print(sort(nums))
+print(sort(nums) |> reverse)
+print(sort(nums) |> take(3))
+nums |> sort |> drop(1) |> head`,
+"Lists: Multiplication table":`let row = n -> range(1, 6) |> map(k -> n * k)
+
+range(1, 6) |> map(row)`,
+"Recursion: GCD and powers":`let gcd = (a, b) -> if b == 0 then a else gcd(b, a % b)
+let pow = (b, e) -> if e == 0 then 1 else b * pow(b, e - 1)
+
+print(gcd(48, 18))
+[gcd(100, 75), pow(2, 2), pow(3, 4)]`,
+"Recursion: Quicksort":`let qsort = xs ->
+  if len(xs) == 0 then []
+  else
+    let p = head(xs) in
+    let rest = tail(xs) in
+    qsort(filter(x -> x < p, rest)) + [p] + qsort(filter(x -> x >= p, rest))
+
+qsort([9, 3, 7, 1, 8, 2, 5])`,
+"Recursion: Primes":`let isPrime = n ->
+  n > 1 && all(d -> n % d != 0, range(2, floor(sqrt(n)) + 1))
+
+range(1, 60) |> filter(isPrime)`,
+"Recursion: Collatz steps":`let collatz = n ->
+  if n == 1 then 0
+  else 1 + collatz(if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+print(collatz(27))
+range(1, 11) |> map(collatz)`,
+"Recursion: Tower of Hanoi":`-- minimum moves for n discs
+let moves = n -> if n == 0 then 0 else 2 * moves(n - 1) + 1
+
+range(0, 11) |> map(moves)`,
+"Strings: Word tools":`let sentence = "the quick brown fox jumps over the lazy dog"
+let words = split(" ", sentence)
+let capitalize = w -> upper(head(chars(w))) + join("", drop(1, chars(w)))
+
+print(len(words))
+print(words |> map(len))
+print(words |> filter(w -> len(w) > 4))
+words |> map(capitalize) |> join(" ")`,
+"Strings: Palindromes":`let clean = s -> lower(s) |> chars |> filter(c -> c != " ") |> join("")
+let isPalindrome = s -> clean(s) == reverse(clean(s))
+
+["level", "A man a plan a canal Panama", "pneuma"] |> map(isPalindrome)`,
+"Programs: FizzBuzz":`let fb = n ->
+  if n % 15 == 0 then "FizzBuzz"
+  else if n % 5 == 0 then "Buzz"
+  else if n % 3 == 0 then "Fizz"
+  else show(n)
+
+range(1, 21) |> map(fb) |> join(" ")`,
+"Programs: Running balance":`let deposits = [100, -30, 45, -12, 80]
+let running = xs -> fold((acc, x) -> acc + [last(acc) + x], [0], xs)
+
+running(deposits)`,
+"Programs: Pascal's triangle":`let next = row -> zip([0] + row, row + [0]) |> map(p -> head(p) + last(p))
+let pascal = n ->
+  if n == 0 then [[1]]
+  else let prev = pascal(n - 1) in prev + [next(last(prev))]
+
+pascal(6) |> map(r -> join(" ", r)) |> join("  |  ")`
+};
+
+// ---------- lexer ----------
+const KW=new Set(['let','if','then','else','in','true','false']);const cont=L=>(L.t==='op'&&L.v!==')'&&L.v!==']')||(L.t==='kw'&&['then','else','in','if','let'].includes(L.v));
+function lex(s){const T=[];let i=0,d=0;
+ while(i<s.length){const c=s[i];
+  if(c==='\n'){if(d===0&&T.length&&T[T.length-1].t!=='nl'&&!cont(T[T.length-1]))T.push({t:'nl'});i++;continue}
+  if(/\s/.test(c)){i++;continue}
+  if(s.startsWith('--',i)){while(i<s.length&&s[i]!=='\n')i++;continue}
+  if(/\d/.test(c)){const m=/^\d+(\.\d+)?/.exec(s.slice(i))[0];T.push({t:'num',v:+m});i+=m.length;continue}
+  if(c==='"'){let j=i+1,r='';while(j<s.length&&s[j]!=='"'){if(s[j]==='\\'){j++;r+=s[j]==='n'?'\n':s[j]}else r+=s[j];j++}
+   if(j>=s.length)throw Error('Unterminated string');T.push({t:'str',v:r});i=j+1;continue}
+  if(/[A-Za-z_]/.test(c)){const m=/^[A-Za-z_][\w']*/.exec(s.slice(i))[0];T.push({t:KW.has(m)?'kw':'id',v:m});i+=m.length;continue}
+  const two=s.substr(i,2);
+  if(['|>','->','==','!=','<=','>=','&&','||'].includes(two)){T.push({t:'op',v:two});i+=2;continue}
+  if('+-*/%<>=(),[]'.includes(c)){if(c==='('||c==='[')d++;if(c===')'||c===']')d=Math.max(0,d-1);T.push({t:'op',v:c});i++;continue}
+  throw Error('Unexpected character "'+c+'"')}
+ T.push({t:'eof'});return T}
+
+// ---------- parser ----------
+function parse(T){let p=0;
+ const isOp=v=>T[p].t==='op'&&T[p].v===v;
+ const isKw=v=>T[p].t==='kw'&&T[p].v===v;
+ const eat=v=>{if(!isOp(v))throw Error('Expected "'+v+'"');p++};
+ const eatKw=v=>{let q=p;while(T[q].t==='nl')q++;if(!(T[q].t==='kw'&&T[q].v===v))throw Error('Expected "'+v+'"');p=q+1};
+ const PR={'|>':0,'||':1,'&&':2,'==':3,'!=':3,'<':4,'>':4,'<=':4,'>=':4,'+':5,'-':5,'*':6,'/':6,'%':6};
+ function expr(min){let l=unary();
+  for(;;){let q=p;while(T[q].t==='nl')q++;
+   const t=T[q];if(t.t!=='op'||!(t.v in PR)||PR[t.v]<min)break;
+   if(q!==p&&t.v!=='|>')break;
+   p=q+1;const r=expr(PR[t.v]+1);l={k:'bin',op:t.v,l,r}}
+  return l}
+ function unary(){if(isOp('-')){p++;return{k:'neg',e:unary()}}return postfix()}
+ function postfix(){let e=primary();
+  while(isOp('(')){p++;const a=[];
+   if(!isOp(')')){do{a.push(expr(0))}while(isOp(',')&&(p++,true))}
+   eat(')');e={k:'call',f:e,a}}
+  return e}
+ function primary(){const t=T[p];
+  if(t.t==='num'||t.t==='str'){p++;return{k:'lit',v:t.v}}
+  if(isKw('true')||isKw('false')){p++;return{k:'lit',v:t.v==='true'}}
+  if(isKw('let')){p++;if(T[p].t!=='id')throw Error('Expected a name after let');const n=T[p++].v;eat('=');const e=expr(0);eatKw('in');return{k:'letin',n,e,body:expr(0)}}
+  if(isKw('if')){p++;const c=expr(0);eatKw('then');const a=expr(0);eatKw('else');return{k:'if',c,a,b:expr(0)}}
+  if(t.t==='id'){p++;
+   if(isOp('->')){p++;return{k:'lam',ps:[t.v],body:expr(0)}}
+   return{k:'var',n:t.v}}
+  if(isOp('[')){p++;const items=[];
+   if(!isOp(']')){do{items.push(expr(0))}while(isOp(',')&&(p++,true))}
+   eat(']');return{k:'list',items}}
+  if(isOp('(')){
+   let j=p+1,d=1;while(d>0&&T[j].t!=='eof'){if(T[j].t==='op'){if(T[j].v==='(')d++;else if(T[j].v===')')d--}j++}
+   if(T[j]&&T[j].t==='op'&&T[j].v==='->'){p++;const ps=[];
+    while(!isOp(')')){if(T[p].t!=='id')throw Error('Bad parameter list');ps.push(T[p++].v);if(isOp(','))p++}
+    eat(')');eat('->');return{k:'lam',ps,body:expr(0)}}
+   p++;const e=expr(0);eat(')');return e}
+  throw Error(t.t==='eof'?'Unexpected end of program':'Unexpected "'+(t.v??t.t)+'"')}
+ const prog=[];
+ for(;;){while(T[p].t==='nl')p++;if(T[p].t==='eof')break;
+  if(isKw('let')){p++;if(T[p].t!=='id')throw Error('Expected a name after let');const n=T[p++].v;eat('=');{const e=expr(0);if(isKw('in')){p++;prog.push({k:'letin',n,e,body:expr(0)})}else prog.push({k:'let',n,e})}}
+  else prog.push(expr(0));
+  if(T[p].t!=='nl'&&T[p].t!=='eof')throw Error('Unexpected "'+(T[p].v??T[p].t)+'"')}
+ return prog}
+
+// ---------- evaluator ----------
+class Env{constructor(par){this.m=new Map();this.par=par}
+ get(n){for(let e=this;e;e=e.par)if(e.m.has(n))return e.m.get(n);throw Error('Undefined name: '+n)}}
+const eq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+function ev(n,env){switch(n.k){
+ case'lit':return n.v;
+ case'var':return env.get(n.n);
+ case'list':return n.items.map(x=>ev(x,env));
+ case'neg':return -ev(n.e,env);
+ case'if':return ev(n.c,env)?ev(n.a,env):ev(n.b,env);
+ case'lam':return{ps:n.ps,body:n.body,env};
+ case'letin':{const e=new Env(env);e.m.set(n.n,ev(n.e,e));return ev(n.body,e)}
+ case'call':return apply(ev(n.f,env),n.a.map(x=>ev(x,env)));
+ case'bin':{
+  const a=ev(n.l,env);
+  if(n.op==='|>')return apply(ev(n.r,env),[a]);
+  if(n.op==='&&')return a?ev(n.r,env):a;
+  if(n.op==='||')return a?a:ev(n.r,env);
+  const b=ev(n.r,env);
+  switch(n.op){
+   case'+':return Array.isArray(a)&&Array.isArray(b)?a.concat(b):a+b;
+   case'-':return a-b;case'*':return a*b;case'%':return a%b;
+   case'/':if(b===0)throw Error('Division by zero');return a/b;
+   case'==':return eq(a,b);case'!=':return !eq(a,b);
+   case'<':return a<b;case'>':return a>b;case'<=':return a<=b;case'>=':return a>=b}}}}
+function apply(f,args){
+ if(typeof f==='function'){
+  if(args.length<f.n){const g=(...r)=>f(...args,...r);g.n=f.n-args.length;return g}
+  const r=f(...args.slice(0,f.n));return args.length>f.n?apply(r,args.slice(f.n)):r}
+ if(f&&f.ps){const k=Math.min(args.length,f.ps.length),e=new Env(f.env);
+  for(let i=0;i<k;i++)e.m.set(f.ps[i],args[i]);
+  if(args.length<f.ps.length)return{ps:f.ps.slice(k),body:f.body,env:e};
+  const r=ev(f.body,e);return args.length>k?apply(r,args.slice(k)):r}
+ throw Error('Not a function: '+show(f))}
+function show(v,top){
+ if(typeof v==='string')return top?v:JSON.stringify(v);
+ if(Array.isArray(v))return '['+v.map(x=>show(x)).join(', ')+']';
+ if(typeof v==='function'||(v&&v.ps))return '<function>';
+ return String(v)}
+
+let OUT=[];
+const G=new Env(null);
+const def=(name,n,fn)=>{fn.n=n;G.m.set(name,fn)};
+const needList=(x,w)=>{if(!Array.isArray(x))throw Error(w+' expects a list');return x};
+def('map',2,(f,xs)=>needList(xs,'map').map(x=>apply(f,[x])));
+def('filter',2,(f,xs)=>needList(xs,'filter').filter(x=>apply(f,[x])));
+def('fold',3,(f,z,xs)=>needList(xs,'fold').reduce((a,x)=>apply(f,[a,x]),z));
+def('range',2,(a,b)=>Array.from({length:Math.max(0,b-a)},(_,i)=>a+i));
+def('sum',1,xs=>needList(xs,'sum').reduce((a,b)=>a+b,0));
+def('len',1,x=>x.length);
+def('head',1,xs=>{if(!xs.length)throw Error('head of empty list');return xs[0]});
+def('tail',1,xs=>xs.slice(1));
+def('reverse',1,xs=>typeof xs==='string'?[...xs].reverse().join(''):[...xs].reverse());
+def('sort',1,xs=>[...xs].sort((a,b)=>a<b?-1:a>b?1:0));
+def('join',2,(s,xs)=>needList(xs,'join').map(x=>show(x,true)).join(s));
+def('upper',1,s=>String(s).toUpperCase());
+def('lower',1,s=>String(s).toLowerCase());
+def('split',2,(sep,str)=>String(str).split(sep));
+def('chars',1,s=>[...String(s)]);
+def('take',2,(n,xs)=>xs.slice(0,n));
+def('drop',2,(n,xs)=>xs.slice(n));
+def('last',1,xs=>{if(!xs.length)throw Error('last of empty list');return xs[xs.length-1]});
+def('zip',2,(a,b)=>a.slice(0,Math.min(a.length,b.length)).map((x,i)=>[x,b[i]]));
+def('concat',1,xss=>xss.flat());
+def('contains',2,(x,xs)=>typeof xs==='string'?xs.includes(x):xs.some(y=>eq(x,y)));
+def('any',2,(f,xs)=>xs.some(x=>apply(f,[x])));
+def('all',2,(f,xs)=>xs.every(x=>apply(f,[x])));
+def('product',1,xs=>xs.reduce((a,b)=>a*b,1));
+def('max',1,xs=>Math.max(...xs));
+def('min',1,xs=>Math.min(...xs));
+def('abs',1,x=>Math.abs(x));
+def('sqrt',1,x=>Math.sqrt(x));
+def('floor',1,x=>Math.floor(x));
+def('show',1,v=>show(v));
+def('print',1,v=>{OUT.push({c:'',t:show(v,true)});return v});
+
+function run(src){OUT=[];
+ try{const prog=parse(lex(src));const env=new Env(G);let last;
+  for(const s of prog){if(s.k==='let'){env.m.set(s.n,ev(s.e,env));last=undefined}else last=ev(s,env)}
+  if(last!==undefined)OUT.push({c:'res',t:'⇒ '+show(last)});
+  else if(!OUT.length)OUT.push({c:'dim',t:'(no value; end your program with an expression)'})}
+ catch(e){OUT.push({c:'err',t:(e instanceof RangeError?'Too much recursion':e.message)})}
+ return OUT}
+
+// ---------- UI ----------
+const $=id=>document.getElementById(id),src=$('src'),out=$('out'),ex=$('ex'),pane=$('outpane');
+const grp={};
+for(const k in EXAMPLES){const i=k.indexOf(': '),g=k.slice(0,i),n=k.slice(i+2);
+ if(!grp[g]){grp[g]=document.createElement('optgroup');grp[g].label=g;ex.appendChild(grp[g])}
+ const o=document.createElement('option');o.value=k;o.textContent=n;grp[g].appendChild(o)}
+function go(){out.textContent='';
+ for(const l of run(src.value)){const d=document.createElement('div');d.className=l.c;d.textContent=l.t;out.appendChild(d)}
+ pane.classList.remove('breathe');void pane.offsetWidth;pane.classList.add('breathe')}
+ex.onchange=()=>{src.value=EXAMPLES[ex.value];go()};
+$('run').onclick=go;
+src.addEventListener('keydown',e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();go()}
+ if(e.key==='Tab'){e.preventDefault();const s=src.selectionStart;src.setRangeText('  ',s,src.selectionEnd,'end')}});
+const note=$('note');
+function say(t,bad){note.hidden=false;note.className='note'+(bad?' bad':'');note.textContent=t}
+const fi=document.createElement('input');fi.type='file';fi.accept='.pneuma,.txt,text/*';
+function openText(f){const r=new FileReader();
+ r.onload=()=>{src.value=String(r.result);$('fname').value=f.name.replace(/\.txt$/i,'').replace(/\.pneuma$/i,'')||'program';say('Opened '+f.name);go()};
+ r.onerror=()=>say('Could not read that file.',1);r.readAsText(f)}
+fi.onchange=()=>{if(fi.files[0])openText(fi.files[0]);fi.value=''};
+$('open').onclick=()=>fi.click();
+src.addEventListener('dragover',e=>e.preventDefault());
+src.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)openText(f)});
+let dl=null;
+(async()=>{try{dl=await claude.use('downloads')}catch(e){}})();
+const base=()=>($('fname').value.trim().replace(/[^\w\- ]/g,'')||'program');
+async function save(ext){const name=base()+ext;
+ if(!dl){say('Saving is not available in this view. Open the page in claude.ai and try again.',1);return}
+ try{await dl.save({filename:name,data:src.value});say('Saved '+name)}
+ catch(e){const c=e&&e.code;
+  if(c==='declined')return;
+  if(c==='rejected_extension'&&ext==='.pneuma'){note.hidden=false;note.className='note bad';note.textContent='This viewer cannot save the .pneuma extension yet.';
+   const b=document.createElement('button');b.textContent='Save as '+base()+'.pneuma.txt';b.onclick=()=>save('.pneuma.txt');note.appendChild(b);return}
+  say('Could not save: '+(e&&e.message||'unknown error'),1)}}
+$('save').onclick=()=>save('.pneuma');
+document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();save('.pneuma')}});
+$('guideBtn').onclick=()=>{const g=$('guide');g.hidden=!g.hidden;$('guideBtn').setAttribute('aria-expanded',String(!g.hidden))};
+src.value=EXAMPLES['Basics: Pipelines'];go();
+</script>
+</body>
+</html>
